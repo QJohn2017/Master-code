@@ -8,4 +8,4 @@ Brillouin zone. For model references and numerical details, please consult resou
 - Ionic Hubbard model
 - Arnoldi iterations / Lanczos subspace methods
 - Quantum time propagation
-
+- High harmonic generation (HHG)
