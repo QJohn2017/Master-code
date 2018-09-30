@@ -106,6 +106,11 @@ for bas=1:length(BASIS)
         state_up=strcat(cat,state_up);
     end
 
+%     bas
+%     state_up
+%     state_dwn
+%     
+    
     %%%%%%%%%%%%%%%%%%%
     % HUBBARD SECTOR
     %%%%%%%%%%%%%%%%%%

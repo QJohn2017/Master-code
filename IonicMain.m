@@ -34,8 +34,7 @@ time_vector=t_0:dt:t_1;
 Nost=length(time_vector);
 
 
-L_time=15;
-L_flux=15;
+
 %OBS! If you have a hamiltonian whose ground state is located right near 0
 %energy, then the ground state will not converge...
 
@@ -56,7 +55,8 @@ sz=(factorial(N)/(factorial(N/2)*factorial(N/2)));
 
 %Specifications for finding the ground state via the Krylov method.
 %Krylov
-L_time = 10; %dimension of the Krylov space in time propagation
+L_time=15; %dimension of the Krylov space in time propagation
+L_flux=15; %dimension of the Krylov space for obtaining the ground state
 
 
 
@@ -77,7 +77,6 @@ f_tilde=@(t) exp(-1i*e*a*(A_pulse(t)));
 %----------------------
 
 
-
 enableParmSweep=input('enableParmSweep? (true/false): ');
 if enableParmSweep
    U_array = input('U-array: ');
@@ -94,22 +93,23 @@ else
     U = U_factor * t_hopping;
 end
 
+
 enableConvergenceTest=input('enableConvergenceTest? (true/false): ');
 if enableConvergenceTest
     convParmVector = input('Vector of dts: ');
 end
-
-
-
-
+% 
+% 
+% 
+% 
 %--------------------------------------------
 %   GENERATING THE BASIS AND HAMTILTONIAN
 %--------------------------------------------
 
 
+
 [~,H_kin_left,H_kin_right,H_U_eff,H_U_ones,Q_matrix_ones,H_spin]=...
 ionicMatrixGen(sz,t_hopping,1,0,N,1);
-
 
 
 
@@ -157,13 +157,13 @@ if enableParmSweep
     
 
 
-    %-----------------------------
-    %       GROUND STATE
-    %-----------------------------
+        %-----------------------------
+        %       GROUND STATE
+        %-----------------------------
 
         if enableKrylovGroundState
            [V_stationary,E]=ground_state(H_kin_left,H_kin_right,U_array(i) * H_U_ones,Q_array(i) * Q_matrix_ones,...
-       NR_EXC_ST,L_flux,enableEnergyShift,energy_shift);
+       1,L_flux,true,30);
 
      
         else
@@ -211,13 +211,13 @@ elseif enableConvergenceTest
     
 
     if enableKrylovGroundState
-       [V_stationary,E]=ground_state(H_kin_left,H_kin_right,U_array(i) * H_U_ones,Q_array(i) * Q_matrix_ones,...
-   NR_EXC_ST,L_flux,enableEnergyShift,energy_shift);
+       [V_stationary,E]=ground_state(H_kin_left,H_kin_right,U * H_U_ones,Q * Q_matrix_ones,...
+   1,L_flux,true,30);
 
 
     else
         [V_stationary, DD ] = eigs(...
-            H_kin_left + H_kin_right+ U_array(i)*H_U_ones + Q_matrix_ones*Q_array(i),1,'sa');
+            H_kin_left + H_kin_right+ U*H_U_ones + Q_matrix_ones*Q,1,'sa');
         D = diag(DD);
         [E,I]=sort(D);
 
@@ -270,7 +270,6 @@ else
     interactionQuench =@(t) U;
 
     
-
     if enableKrylovTimePropagation
 
        [W,current,Dh_corr,spin_corr] = KrylovTimePropagation(V_stationary,...
@@ -295,30 +294,39 @@ else
 end
 
 
-%---------------------------
-% HHG SPECTRUM
-%---------------------------
 
-%DOMAIN IN FREQ. SPACE
-%atomic_sec=2.418*10^(-17);
-Fs=length(time_vector)/((time_vector(end)-time_vector(1))*atomic_sec);
-freqHz=(0:1:length(time_vector)-1)*Fs/(length(time_vector)); %Fs is the sampling rate (1/s)
-freqat=freqHz*atomic_sec;
-omega_vect=2*pi*freqat/omega;
-omega_vect=omega_vect(1:end/6);
+if not(enableParmSweep) && not(enableConvergenceTest) %Since this case involves the data processing of a multi-dimensional array. 
+    %It can however be done by generalizing the code snippet below. 
 
-%Window function
-tau=(time_vector(1) + time_vector(end))/2;
-FWHM=(125*10^(-15))/atomic_sec;
-sigma_wide=FWHM/2.35482;
-J_Gabor(1:length(time_vector))=exp(-((time_vector-tau).^2)/(sigma_wide^2));
+    %---------------------------
+    % HHG SPECTRUM
+    %---------------------------
+
+    %DOMAIN IN FREQ. SPACE
+    %atomic_sec=2.418*10^(-17);
+    Fs=length(time_vector)/((time_vector(end)-time_vector(1))*atomic_sec);
+    freqHz=(0:1:length(time_vector)-1)*Fs/(length(time_vector)); %Fs is the sampling rate (1/s)
+    freqat=freqHz*atomic_sec;
+    omega_vect=2*pi*freqat/omega;
+    omega_vect=omega_vect(1:end/6);
+
+    %Window function
+    tau=(time_vector(1) + time_vector(end))/2;
+    FWHM=(125*10^(-15))/atomic_sec;
+    sigma_wide=FWHM/2.35482;
+    J_Gabor(1:length(time_vector))=exp(-((time_vector-tau).^2)/(sigma_wide^2));
 
 
-acceleration(1,1:length(time_vector))=0;
-acceleration(1:length(time_vector)-1)=current(2:end,1)-current(1:end-1,1);
-acceleration(length(time_vector))=acceleration(end);
-acceleration(:)=acceleration/(time_vector(2)-time_vector(1));
-HHG=fft(acceleration.*J_Gabor);
+    acceleration(1,1:length(time_vector))=0;
+    acceleration(1:length(time_vector)-1)=current(2:end,1)-current(1:end-1,1);
+    acceleration(length(time_vector))=acceleration(end);
+    acceleration(:)=acceleration/(time_vector(2)-time_vector(1));
+    HHG=fft(acceleration.*J_Gabor);
 
-plot(omega_vect,log10(HHG(1:length(omega_vect))))
-           
+
+    %High harmonic spectrum
+    plot(omega_vect,log10(HHG(1:length(omega_vect))))
+    xlabel('$\frac{\omega}{\omega_0}$','Interpreter','latex','FontSize',20)
+    ylabel('Harmonic intensity (arb.u)','Interpreter','latex','FontSize',18)
+    
+end
